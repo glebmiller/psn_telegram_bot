@@ -463,18 +463,22 @@ def check_new_trophies(game_id, user_name, platform):
         # print("res[0]['games']=", l)
         # saved_game =
         for i in res[0]["games"]:
-            # saved_game = i[game_id]
-            for keys, vals in i.items():
-                if keys == game_id:
-                    saved_game = (
-                        vals  # нашли нужную игру в таблице трофеев пользователя
-                    )
+
+            try:
+                saved_game = i[game_id]
+                print(saved_game)
+                break
+            except:
+                pass
+
         online_trophies = game_trophies(game_id, platform, user_account_id)
         # print((saved_game))
         # print((online_trophies))
 
         if saved_game["lastUpdatedDateTime"] == online_trophies["lastUpdatedDateTime"]:
-            print("TRUE")
+            print(
+                """ saved_game["lastUpdatedDateTime"] == online_trophies["lastUpdatedDateTime"] """
+            )
         else:
             # if выпал трофей
             if saved_game["totalItemCount"] == online_trophies["totalItemCount"]:
