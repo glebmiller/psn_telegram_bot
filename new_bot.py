@@ -466,8 +466,8 @@ def check_new_trophies(game_id, user_name, platform):
 
             try:
                 saved_game = i[game_id]
-                print(saved_game)
-                break
+                # print(saved_game)
+
             except:
                 pass
 
@@ -538,7 +538,31 @@ def check_new_trophies(game_id, user_name, platform):
                 )
             else:
                 print("вышло DLC")
+                # внести изменения в users_collection
+                users_collection.update_one(
+                    {"_id": user_name},
+                    {"$pull": {"games": {game_id: saved_game}}},
+                    True,
+                    False,
+                )
+                users_collection.update_one(
+                    {"_id": user_name},
+                    {"$push": {"games": {game_id: online_trophies}}},
+                    True,
+                    True,
+                )
+
                 # надо обновить таблицу игры с названиями трофеями
+
+                query = {"_id": game_id}
+                games_collection.delete_one(query)
+
+                values = {"_id": game_id, "trophies": online_trophies}
+                games_collection.insert_one(values)
+
+                update_collection(user_name)
+
+                check_new_trophies(game_id, user_name, platform)
 
                 # надо обновить таблицу пользователей с айди трофеями
 
@@ -743,7 +767,9 @@ def send_test():
 
 async def background_on_start() -> None:
     """background task which is created when bot starts"""
+
     while True:
+
         friends_check()
         await asyncio.sleep(350 + random.randint(1, 10))
 
