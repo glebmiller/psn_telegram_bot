@@ -13,7 +13,7 @@ client = pymongo.MongoClient("mongodb://localhost:27017")
 database = client.TestMongo
 collection = database.test2
 
-#client = pymongo.MongoClient("mongodb://localhost:27017")
+# client = pymongo.MongoClient("mongodb://localhost:27017")
 db = client.PSNTrophies
 
 # общая таблица без названий трофеев
@@ -25,19 +25,19 @@ users_collection = db.users
 games_collection = db.games_with_trophies
 
 
-login = 'DanilaRU'
+login = "Orr1n-_-"
 query = {"_id": login}
 users_collection.delete_one(query)
 
 
-
 ids = []
 for x in collection_scores.find():
-    ids.append(x['_id'])
-   # print(x)
+    ids.append(x["_id"])
+# print(x)
 
 
 for i in ids:
 
-    collection_scores.update_one({'_id': i}, {
-        "$pull": {"user complitage": {login: {"$exists": True}}}})  # , True, False)
+    collection_scores.update_one(
+        {"_id": i}, {"$pull": {"user complitage": {login: {"$exists": True}}}}
+    )  # , True, False)
