@@ -1,0 +1,17 @@
+psnawp_api/__pycache__
+venv
+.idea
+test.py
+
+*.md
+add_to_db.py
+db1.py
+database.py
+mongo_test1.py
+.DS_Store
+._.DS_Store
+._add_to_db.py
+._database.py
+._user_delete.py
+
+__pycache__/
