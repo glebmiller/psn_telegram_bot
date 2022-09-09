@@ -2,9 +2,8 @@ from aiogram import Bot, Dispatcher, executor, types
 from psnawp_api import psnawp
 from psnawp_api import user
 import pymongo
-import motor.motor_asyncio
 import re
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import aiogram.types
 import telebot
 import database
 import os
@@ -21,11 +20,7 @@ from telegram import ParseMode
 
 
 def cmdline(command):
-    process = Popen(
-        args=command,
-        stdout=PIPE,
-        shell=True
-    )
+    process = Popen(args=command, stdout=PIPE, shell=True)
     return process.communicate()[0]
 
 
@@ -60,11 +55,10 @@ def game_in_db(game_id):
 def add_game_to_db(game_id, version, user_account_id):
     result = user_account_id.get_game_trophy_names(game_id, version)
     print(result)
-    list_of_trophies = result['trophies']
+    list_of_trophies = result["trophies"]
     print(list_of_trophies)
-    values = {'_id': game_id,
-              'trophies': list_of_trophies}
-    x = games_collection.insert_one(values)
+    values = {"_id": game_id, "trophies": list_of_trophies}
+    games_collection.insert_one(values)
 
 
 def game_trophies(game_id, version, user_account_id):
@@ -76,30 +70,36 @@ def game_trophies(game_id, version, user_account_id):
 def complete_users_collection(login):
     user_account_id = psnawp.user(online_id=login)
     l = user_account_id.get_all_trophies()
-    d = l['trophyTitles']
-    values = {}
+    d = l["trophyTitles"]
+
     for i in d:
         #     i['npCommunicationId']  i['trophyTitlePlatform']
-        res = game_trophies(i['npCommunicationId'],
-                            i['trophyTitlePlatform'], user_account_id)
-        x = users_collection.update_one(
-            {'_id': login},
-            {'$push': {'games': {i['npCommunicationId']: res}}}
+        res = game_trophies(
+            i["npCommunicationId"], i["trophyTitlePlatform"], user_account_id
+        )
+        users_collection.update_one(
+            {"_id": login}, {"$push": {"games": {i["npCommunicationId"]: res}}}
         )
 
     # sleep(3)
 
 
 def add_game_to_collection(
-        npCommunicationId, trophyTitleName, login, progress, trophyTitlePlatform, trophyTitleIconUrl):
+    npCommunicationId,
+    trophyTitleName,
+    login,
+    progress,
+    trophyTitlePlatform,
+    trophyTitleIconUrl,
+):
     values = {
         "_id": npCommunicationId,
         "title": trophyTitleName,
         "user complitage": [{login: progress}],
         "title platform": trophyTitlePlatform,
-        "image": trophyTitleIconUrl
+        "image": trophyTitleIconUrl,
     }
-    x = collection.insert_one(values)
+    collection.insert_one(values)
 
 
 # добавляем данные пользователя в collection
@@ -107,21 +107,25 @@ def update_collection(login):
     user_account_id = psnawp.user(online_id=login)
     l = user_account_id.get_all_trophies()
 
-    d = l['trophyTitles']
+    d = l["trophyTitles"]
     values = {}
     for i in d:
         # если игры нет в бд, добавляем запись полностью
-        if not game_in_db(i['npCommunicationId']):
+        if not game_in_db(i["npCommunicationId"]):
             add_game_to_collection(
-                i['npCommunicationId'], i['trophyTitleName'], login, i['progress'], i['trophyTitlePlatform'],
-                i['trophyTitleIconUrl'])
+                i["npCommunicationId"],
+                i["trophyTitleName"],
+                login,
+                i["progress"],
+                i["trophyTitlePlatform"],
+                i["trophyTitleIconUrl"],
+            )
 
         else:  # если игра есть, только добавляем пользователя в список
-            _id = i['npCommunicationId']
-            progress = i['progress']
-            x = collection.update_one(
-                {'_id': _id},
-                {'$push': {'user complitage': {login: progress}}}
+            _id = i["npCommunicationId"]
+            progress = i["progress"]
+            collection.update_one(
+                {"_id": _id}, {"$push": {"user complitage": {login: progress}}}
             )
 
         # добавляем пользователя в users_collection, а его данные в  collection
@@ -129,9 +133,7 @@ def update_collection(login):
 
 def add_user(login):
     # complete_users_collection(login)
-    y = users_collection.insert_one(
-        {'_id': login,
-         'games': []})
+    users_collection.insert_one({"_id": login, "games": []})
 
     update_collection(login)
 
@@ -147,7 +149,7 @@ def find_game_by_id(game):
 def find_game(game):
     query = {"title": re.compile(game, re.IGNORECASE)}
     result = []
-    res = (collection.find(query))
+    res = collection.find(query)
     return res
 
 
@@ -164,17 +166,17 @@ dp = Dispatcher(bot)
 def extract_arg(arg):
     # s=''
     n = arg.split()[1:]
-    s = ' '.join(n)
+    s = " ".join(n)
     return s
 
 
 # вовращает id игры по названию и платформе
 
+
 def game_id_from_name(game_name, platform):
-    query = {'title': game_name,
-             'title platform': platform}
-    tmp = (list(collection.find(query)))
-    return tmp[0]['_id']
+    query = {"title": game_name, "title platform": platform}
+    tmp = list(collection.find(query))
+    return tmp[0]["_id"]
 
 
 # составляем ответ для /find game
@@ -183,14 +185,14 @@ def compose_answer(found_game):
     platform = found_game[2]
 
     tmp_list = []
-    d = (found_game[1])
+    d = found_game[1]
 
-    result = game_name + ' ' + platform + '\n'
+    result = game_name + " " + platform + "\n"
     for line in d:
         for keys, vals in line.items():
             tmp_list.append((keys, vals))
     tmp_list = sorted(tmp_list, key=lambda x: x[1], reverse=True)
-    print('tmp_list = ', tmp_list)
+    print("tmp_list = ", tmp_list)
     # check if platinum
     game_id = game_id_from_name(game_name, platform)
     tmp_list = check_if_platinum(tmp_list, game_id, platform)
@@ -198,28 +200,27 @@ def compose_answer(found_game):
     for i in tmp_list:
         print(i)
         if i[2]:
-            result += '\n' + i[0] + ": " + str(i[1]) + '\U0001F525'
+            result += "\n" + i[0] + ": " + str(i[1]) + "\U0001F525"
             if i[5]:
                 result += i[6]
         else:
-            result += '\n' + i[0] + ": " + str(i[1])
+            result += "\n" + i[0] + ": " + str(i[1])
 
     return result
 
 
 def check_if_platinum(user_list, game_id, platform):
     today = datetime.datetime.today()
-    temp_date = datetime.datetime.strptime(
-        '2950-03-28T8:13:11', "%Y-%m-%dT%H:%M:%S")
+    temp_date = datetime.datetime.strptime("2950-03-28T8:13:11", "%Y-%m-%dT%H:%M:%S")
     tmp_list = []
     for i in user_list:
-        print(' i for i in user list', i)
+        print(" i for i in user list", i)
 
-        query = {'_id': i[0]}
+        query = {"_id": i[0]}
 
         searched_game = {}
         all_user_games = list(users_collection.find(query))
-        arr = all_user_games[0]['games']
+        arr = all_user_games[0]["games"]
         # arrr = arr['games']
         for j in arr:
             for keys, vals in j.items():
@@ -230,27 +231,32 @@ def check_if_platinum(user_list, game_id, platform):
         if searched_game == {}:
             print(i[0])
             user_account_id = psnawp.user(online_id=i[0])
-            online_trophies = game_trophies(
-                game_id, platform, user_account_id)
+            online_trophies = game_trophies(game_id, platform, user_account_id)
             searched_game = online_trophies
 
             users_collection.update_one(
-                {'_id': i[0]}, {"$push": {"games": {game_id: online_trophies}}}, True, True)
+                {"_id": i[0]},
+                {"$push": {"games": {game_id: online_trophies}}},
+                True,
+                True,
+            )
 
-        plat = (searched_game['trophies'])
-        if plat[0]['trophyType'] == 'platinum' and plat[0]['earned']:
-            print('platinum')
+        plat = searched_game["trophies"]
+        if plat[0]["trophyType"] == "platinum" and plat[0]["earned"]:
+            print("platinum")
             earnedDateList = []
             for j in plat:
                 # print(i)
-                if j['earned']:
-                    earnedDateList.append(j['earnedDateTime'])
+                if j["earned"]:
+                    earnedDateList.append(j["earnedDateTime"])
 
             earnedDateList = sorted(earnedDateList)
             firstTrophy = datetime.datetime.strptime(
-                earnedDateList[-1], "%Y-%m-%dT%H:%M:%SZ")
+                earnedDateList[-1], "%Y-%m-%dT%H:%M:%SZ"
+            )
             lastTrophy = datetime.datetime.strptime(
-                earnedDateList[0], "%Y-%m-%dT%H:%M:%SZ")
+                earnedDateList[0], "%Y-%m-%dT%H:%M:%SZ"
+            )
 
             print(firstTrophy - lastTrophy)
             tmp_list.append((True, firstTrophy - lastTrophy, lastTrophy))
@@ -267,13 +273,13 @@ def check_if_platinum(user_list, game_id, platform):
         user_list[i] = user_list[i] + tmp_list[i]
     # print(user_list)
     user_list = sorted(user_list, key=lambda x: x[3])
-    print('user list = ', user_list)
-    #user_list=list(sorted(user_list, key=lambda x: x[1], reverse=True))
-    user_list[0] = user_list[0] + (True, '\U0001F407')
+    print("user list = ", user_list)
+    # user_list=list(sorted(user_list, key=lambda x: x[1], reverse=True))
+    user_list[0] = user_list[0] + (True, "\U0001F407")
 
     for i in range(len(user_list) - 1, -1, -1):
         if user_list[i][2]:
-            user_list[i] = user_list[i] + (True, '\U0001F422 ')
+            user_list[i] = user_list[i] + (True, "\U0001F422 ")
             break
 
     for i in range(len(user_list)):
@@ -281,7 +287,7 @@ def check_if_platinum(user_list, game_id, platform):
             user_list[i] = user_list[i] + (False,)
 
     user_list = sorted(user_list, key=lambda x: x[0])
-    user_list=list(sorted(user_list, key=lambda x: (x[1]), reverse=True))
+    user_list = list(sorted(user_list, key=lambda x: (x[1]), reverse=True))
     return user_list
 
 
@@ -290,13 +296,13 @@ def make_single_list(list_of_games):
     found_game = []
     temp_d = dict(list_of_games)
     for keys, vals in temp_d.items():
-        if keys in ('image', 'title', 'user complitage', 'title platform'):
+        if keys in ("image", "title", "user complitage", "title platform"):
             found_game.append(vals)
     return found_game
 
 
 # ищет заданную игру
-@dp.message_handler(commands=['find'])
+@dp.message_handler(commands=["find"])
 async def find(message):
     # asyncio.run(send_test())
     game = extract_arg(message.text)
@@ -321,11 +327,11 @@ async def find(message):
             games_array = []
             ids_array = []
             for lines in list_of_games:
-                s = ''
+                s = ""
                 for keys, vals in lines.items():
-                    if keys == 'title' or keys == 'title platform':
-                        s += vals + ' '
-                    if keys == '_id':
+                    if keys == "title" or keys == "title platform":
+                        s += vals + " "
+                    if keys == "_id":
                         ids_array.append(vals)
                 s = s.strip()
                 games_array.append(s)
@@ -338,25 +344,26 @@ async def find(message):
                 markup = types.InlineKeyboardMarkup()
 
                 for key, value in buttons_list.items():
-                    markup.add(types.InlineKeyboardButton(
-                        text=key, callback_data=value))
+                    markup.add(
+                        types.InlineKeyboardButton(text=key, callback_data=value)
+                    )
 
-                await message.reply('Выбери игру', reply_markup=markup)
+                await message.reply("Выбери игру", reply_markup=markup)
 
-                print(list_of_games[0]['_id'])
+                print(list_of_games[0]["_id"])
             else:
-                buttons_list = [(i, j)
-                                for i, j in zip(games_array, ids_array)]
+                buttons_list = [(i, j) for i, j in zip(games_array, ids_array)]
                 markup = types.InlineKeyboardMarkup()
                 for i in buttons_list:
-                    markup.add(types.InlineKeyboardButton(
-                        text=i[0], callback_data=i[1]))
-                await message.reply('Выбери игру', reply_markup=markup)
+                    markup.add(
+                        types.InlineKeyboardButton(text=i[0], callback_data=i[1])
+                    )
+                await message.reply("Выбери игру", reply_markup=markup)
 
 
 @dp.callback_query_handler()
 async def button_reply(call: types.CallbackQuery):
-    f = (find_game_by_id(call.data))
+    f = find_game_by_id(call.data)
     print(f"f = {f}")
     found_game = make_single_list(f[0])
     print(f"found_game = {found_game}")
@@ -379,19 +386,21 @@ def check_if_user_in_db(login):
 
 
 # добавляем пользователя если он в друзьях и еще не добавлен
-@dp.message_handler(commands=['add'])
+@dp.message_handler(commands=["add"])
 async def add(message):
-    user = extract_arg(message.text)
+    login = extract_arg(message.text)
 
-    user_account_id = psnawp.user(online_id=user)
+    user_account_id = psnawp.user(online_id=login)
     l = user_account_id.friendship()
-    if l['friendRelation'] == 'friend' and not check_if_user_in_db(user):
-        await bot.send_message(message.chat.id, f"adding {user} to DB")
-        add_user(user)
-    elif l['friendRelation'] == 'friend' and check_if_user_in_db(user):
-        await bot.send_message(message.chat.id, f"{user} alredy in DB")
+    if l["friendRelation"] == "friend" and not check_if_user_in_db(login):
+        await bot.send_message(message.chat.id, f"adding {login} to DB")
+        add_user(login)
+    elif l["friendRelation"] == "friend" and check_if_user_in_db(login):
+        await bot.send_message(message.chat.id, f"{login} alredy in DB")
     else:
-        await bot.send_message(message.chat.id, f"Become friends with MillerUSACC first!")
+        await bot.send_message(
+            message.chat.id, "Become friends with MillerUSACC first!"
+        )
 
 
 # обновляет game complitage в таблице games
@@ -399,19 +408,20 @@ def game_complitage_update(login, game_id):
     user_account_id = psnawp.user(online_id=login)
     l = user_account_id.get_all_trophies()
 
-    d = l['trophyTitles']
-    values = {}
+    d = l["trophyTitles"]
+
     for i in d:
-        if i['npCommunicationId'] == game_id:
+        if i["npCommunicationId"] == game_id:
             # print(i)
-            progress = i['progress']
-            print('progress ', progress)
+            progress = i["progress"]
+            print("progress ", progress)
 
     collection.update_one(
-        {'_id': game_id}, {
-            "$pull": {"user complitage": {login: {"$exists": True}}}})  # , True, False)
+        {"_id": game_id}, {"$pull": {"user complitage": {login: {"$exists": True}}}}
+    )  # , True, False)
     collection.update_one(
-        {'_id': game_id}, {"$push": {"user complitage": {login: progress}}})  # , True, True)
+        {"_id": game_id}, {"$push": {"user complitage": {login: progress}}}
+    )  # , True, True)
     # {'$push': {'games': {i['npCommunicationId']: progress}}}
 
 
@@ -422,17 +432,17 @@ def print_new_trophies(difference, game_id, rates, trophy_type):
     # print(difference)
     # print(res[0]['trophies'])
     trophies_to_print = []
-    for i in res[0]['trophies']:
+    for i in res[0]["trophies"]:
         temp_list = []
-        if i['trophyId'] in difference[::-1]:
-            st = i['trophyDetail']
+        if i["trophyId"] in difference[::-1]:
+            st = i["trophyDetail"]
             st = st.replace('"', "'")
-            temp_list.append(i['trophyName'])
+            temp_list.append(i["trophyName"])
             temp_list.append(st)
-            temp_list.append(i['trophyType'])
-            temp_list.append(i['trophyIconUrl'])
-            temp_list.append(rates[difference.index(i['trophyId'])])
-            temp_list.append(trophy_type[difference.index(i['trophyId'])])
+            temp_list.append(i["trophyType"])
+            temp_list.append(i["trophyIconUrl"])
+            temp_list.append(rates[difference.index(i["trophyId"])])
+            temp_list.append(trophy_type[difference.index(i["trophyId"])])
 
             trophies_to_print.append(temp_list)
     return trophies_to_print
@@ -443,31 +453,34 @@ def check_new_trophies(game_id, user_name, platform):
     print(game_id)
     user_account_id = psnawp.user(online_id=user_name)
     query = {"_id": user_name}
-    print('user_name = ', user_name)
+    print("user_name = ", user_name)
     res = list(users_collection.find(query))
 
     # print(res)
     # тут был index out of range
     if len(res) > 0:
-        l = res[0]['games']
+        # l = res[0]["games"]
         # print("res[0]['games']=", l)
         # saved_game =
-        for i in l:
+        for i in res[0]["games"]:
             # saved_game = i[game_id]
             for keys, vals in i.items():
                 if keys == game_id:
-                    saved_game = vals  # нашли нужную игру в таблице трофеев пользователя
+                    saved_game = (
+                        vals  # нашли нужную игру в таблице трофеев пользователя
+                    )
         online_trophies = game_trophies(game_id, platform, user_account_id)
         # print((saved_game))
         # print((online_trophies))
 
-        if saved_game['lastUpdatedDateTime'] == online_trophies['lastUpdatedDateTime']:
-            print('TRUE')
+        if saved_game["lastUpdatedDateTime"] == online_trophies["lastUpdatedDateTime"]:
+            print("TRUE")
         else:
-            if saved_game['totalItemCount'] == online_trophies['totalItemCount']:  # выпал трофей
-                print('trophie received')
-                old_list = saved_game['trophies']
-                new_list = online_trophies['trophies']
+            # if выпал трофей
+            if saved_game["totalItemCount"] == online_trophies["totalItemCount"]:
+                print("trophie received")
+                old_list = saved_game["trophies"]
+                new_list = online_trophies["trophies"]
                 # print(old_list)
                 # print(new_list)
                 difference = []
@@ -476,40 +489,51 @@ def check_new_trophies(game_id, user_name, platform):
                 today = datetime.date.today()
                 for i in range(len(old_list)):
 
-                    if old_list[i]['earned'] != new_list[i]['earned']:
+                    if old_list[i]["earned"] != new_list[i]["earned"]:
                         # print(new_list[i])
-                        print(new_list[i]['earnedDateTime'][:10])
-                        date_earned = new_list[i]['earnedDateTime'][:10]
+                        print(new_list[i]["earnedDateTime"][:10])
+                        date_earned = new_list[i]["earnedDateTime"][:10]
                         date_earned = datetime.datetime.strptime(
-                            date_earned, "%Y-%m-%d").date()
+                            date_earned, "%Y-%m-%d"
+                        ).date()
                         bb = int(str(today)[-2:])
                         aa = int(str(date_earned)[-2:])
                         if bb - aa <= 2:
-                            rate = new_list[i]['trophyEarnedRate']
-                            difference.append(new_list[i]['trophyId'])
+                            rate = new_list[i]["trophyEarnedRate"]
+                            difference.append(new_list[i]["trophyId"])
                             rates.append(rate)
-                            trophy_type.append(new_list[i]['trophyType'])
+                            trophy_type.append(new_list[i]["trophyType"])
                             # difference.append(dict({new_list[i]['trophyId']:rate}))
                 print(f"difference = {difference}")
                 trophies_to_print = print_new_trophies(
-                    difference, game_id, rates, trophy_type)
+                    difference, game_id, rates, trophy_type
+                )
 
                 # внести изменения в users_collection
                 users_collection.update_one(
-                    {'_id': user_name}, {"$pull": {"games": {game_id: saved_game}}}, True, False)
+                    {"_id": user_name},
+                    {"$pull": {"games": {game_id: saved_game}}},
+                    True,
+                    False,
+                )
                 users_collection.update_one(
-                    {'_id': user_name}, {"$push": {"games": {game_id: online_trophies}}}, True, True)
+                    {"_id": user_name},
+                    {"$push": {"games": {game_id: online_trophies}}},
+                    True,
+                    True,
+                )
 
                 # обновляет game complitage в таблице games
                 game_complitage_update(user_name, game_id)
                 # print(trophies_to_print)
-                f = (find_game_by_id(game_id))
+                f = find_game_by_id(game_id)
                 # print(f"f = {f}")
                 found_game = make_single_list(f[0])
                 send_trophies_to_chat(
-                    trophies_to_print, user_name, found_game[0], platform)
+                    trophies_to_print, user_name, found_game[0], platform
+                )
             else:
-                print('вышло DLC')
+                print("вышло DLC")
                 # надо обновить таблицу игры с названиями трофеями
 
                 # надо обновить таблицу пользователей с айди трофеями
@@ -517,20 +541,26 @@ def check_new_trophies(game_id, user_name, platform):
 
 def make_html(trophies_to_print, user_name, gamename):
     print(trophies_to_print)
-    with open('blank_page.html', 'r') as file:
+    with open("blank_page.html", "r") as file:
         content = file.read()
         # print(type(content))
         content = content.replace("insert_title", trophies_to_print[0])
-        content = content.replace('insert_description',
-                                  trophies_to_print[1] + '\n' + trophies_to_print[-2] + ' - ' + trophies_to_print[-1])
-        content = content.replace('insert_image', trophies_to_print[3])
-        content = content.replace('insert_username', user_name)
-        content = content.replace('insert_gamename', gamename)
+        content = content.replace(
+            "insert_description",
+            trophies_to_print[1]
+            + "\n"
+            + trophies_to_print[-2]
+            + " - "
+            + trophies_to_print[-1],
+        )
+        content = content.replace("insert_image", trophies_to_print[3])
+        content = content.replace("insert_username", user_name)
+        content = content.replace("insert_gamename", gamename)
         # print(content)
     today = str(datetime.datetime.now())
-    today = today.replace(' ', '')
-    url = today + '.html'
-    with open(url, 'w') as file:
+    today = today.replace(" ", "")
+    url = today + ".html"
+    with open(url, "w") as file:
         file.write(content)
         file.close()
     return url
@@ -539,58 +569,55 @@ def make_html(trophies_to_print, user_name, gamename):
 def send_trophies_to_chat(trophies_to_print, user_name, game_name, platform):
     chatid = -1001105821166
     for i in trophies_to_print:
-        #result = user_name + ' ' + game_name + '\n' + \
+        # result = user_name + ' ' + game_name + '\n' + \
         #         i[0] + '\n' + i[1] + '\n' + i[-1] + " - " + i[-2]
-        #url = i[3]
+        # url = i[3]
         print(i)
         print(game_name)
         print(type(game_name))
         # for i in range(len(trophies_to_print))
         url = make_html(i, user_name, game_name)
-        os.system(f'sudo cp {url} /var/www/tutorial/{url}')
+        os.system(f"sudo cp {url} /var/www/tutorial/{url}")
 
-        #result = user_name + ' ' + game_name + \
+        # result = user_name + ' ' + game_name + \
         #         '\nhttp://ec2-34-201-58-112.compute-1.amazonaws.com/' + url
         result = f"{user_name} -<a href='http://ec2-34-201-58-112.compute-1.amazonaws.com/{url}'> {game_name}</a> - {platform.upper()}"
         print(result)
         telebot.sendMessage(chatid, result, parse_mode=ParseMode.HTML)
-        os.system(f'rm {url}')
-        if i[2] == 'platinum':
-            telebot.send_sticker(chatid,
-                                 sticker='CAACAgIAAxkBAAEV9xliz9cW_7inof3UGYHVLF3AbJuy_QACTwsAAkKvaQABE3jwX_D6RZYpBA')
+        os.system(f"rm {url}")
+        if i[2] == "platinum":
+            telebot.send_sticker(
+                chatid,
+                sticker="CAACAgIAAxkBAAEV9xliz9cW_7inof3UGYHVLF3AbJuy_QACTwsAAkKvaQABE3jwX_D6RZYpBA",
+            )
 
 
 def friends_check():
     bot_friends = psnawp.client.get_friends()
-    print(f"friends {bot_friends}")
+    # print(f"friends {bot_friends}")
 
     for i in bot_friends:
 
         user_id = psnawp.user(account_id=i)
-        user_name = user_id.profile()['onlineId']
+        user_name = user_id.profile()["onlineId"]
 
-        presence = user_id.get_presence()
-        print(presence)
-        primaryPlatformInfo = presence['basicPresence']['primaryPlatformInfo']
-        print(primaryPlatformInfo['onlineStatus'],
-              primaryPlatformInfo['platform'])
+        all_user_games = user_id.get_all_trophies()
+        last_user_games = all_user_games["trophyTitles"][:2]
+        # print(last_user_games)
+        # break
+        # presence = user_id.get_presence()
 
-        if (primaryPlatformInfo['onlineStatus']) == 'online' and 'gameTitleInfoList' in presence['basicPresence']:
-            online = (presence['basicPresence']['gameTitleInfoList'][0])
-            for keys, vals in online.items():
-                if keys == 'titleName':
-                    game_name = vals
-                if keys == 'format':
-                    platform = vals
-            print(game_name, platform)
-            cusa = presence['basicPresence']['gameTitleInfoList'][0]['npTitleId']
+        # print(presence)
+        # primaryPlatformInfo = presence["basicPresence"]["primaryPlatformInfo"]
+        # print(primaryPlatformInfo["onlineStatus"], primaryPlatformInfo["platform"])
 
-            # находит game_id по названию и добавляет в collection, если там игры не было
+        # находит game_id по названию и добавляет в collection, если там игры не было
 
-            game_id = find_game_with_platform(
-                cusa, i, user_id, user_name)
-
-            if game_id != '':
+        # game_id = find_game_with_platform(cusa, i, user_id, user_name)
+        for game in last_user_games:
+            game_id = game["npCommunicationId"]
+            platform = game["trophyTitlePlatform"]
+            if game_id != "":
                 # проверим, есть ли информация о трофеях игры
                 check_game_in_games_db(game_id, platform, user_id)
 
@@ -606,14 +633,18 @@ def friends_check():
 def check_game_in_users_db(game_id, platform, user_name, user_id):
     result = game_trophies(game_id, platform, user_id)
 
-    tmpstr = 'games.' + game_id
-    query = ({'$and': [{"_id": re.compile(user_name, re.IGNORECASE)}, {
-        tmpstr: {"$exists": True}}]})
+    tmpstr = "games." + game_id
+    query = {
+        "$and": [
+            {"_id": re.compile(user_name, re.IGNORECASE)},
+            {tmpstr: {"$exists": True}},
+        ]
+    }
     res = list(users_collection.find(query))
     if len(res) == 0:
-        x = users_collection.update_one(
-            {'_id': user_name},
-            {'$push': {'games': {game_id: result}}})
+        users_collection.update_one(
+            {"_id": user_name}, {"$push": {"games": {game_id: result}}}
+        )
 
 
 def check_game_in_games_db(game_id, platform, user_id):
@@ -633,30 +664,35 @@ def find_game_with_platform(cusa, account_id, user_id, login):
         res = list(collection.find(query))
         # print(res)
         if len(res) > 0:
-            return res[0]['_id']
+            return res[0]["_id"]
         else:
             # впервые кто то запустил эту игру и ее надо добавить в collection
-            print(' впервые кто то запустил эту игру и ее надо добавить в collection')
-            print('cusa = ', cusa)
+            print(" впервые кто то запустил эту игру и ее надо добавить в collection")
+            print("cusa = ", cusa)
             l = user_id.get_all_trophies()
 
-            d = l['trophyTitles']
+            d = l["trophyTitles"]
             # print(d)
             for i in d:
                 # print(i['trophyTitleName'])
                 # re.compile(game, re.IGNORECASE):
-                if i['npCommunicationId'] == game_id:
-                    print('нашли игру')
+                if i["npCommunicationId"] == game_id:
+                    print("нашли игру")
                     add_game_to_collection(
-                        i['npCommunicationId'], i['trophyTitleName'], login, i['progress'], i['trophyTitlePlatform'],
-                        i['trophyTitleIconUrl'])
-                    print(i['npCommunicationId'])
-                    return i['npCommunicationId']
+                        i["npCommunicationId"],
+                        i["trophyTitleName"],
+                        login,
+                        i["progress"],
+                        i["trophyTitlePlatform"],
+                        i["trophyTitleIconUrl"],
+                    )
+                    print(i["npCommunicationId"])
+                    return i["npCommunicationId"]
             # else:
             # print('не нашли игру')
     except:
-        print('что то пошло не так в cusa -> game_id')
-        return ''
+        print("что то пошло не так в cusa -> game_id")
+        return ""
 
 
 async def start_friends_check(interval, periodic_function):
@@ -672,23 +708,26 @@ async def start_friends_check(interval, periodic_function):
 
 def send_test():
     print("inside test send")
-    url = 'https://psnobj.prod.dl.playstation.net/psnobj/NPWR22008_00/6c1d6ee2-469a-4b97-ad63-98ec651ad4f2.png'
+    url = "https://psnobj.prod.dl.playstation.net/psnobj/NPWR22008_00/6c1d6ee2-469a-4b97-ad63-98ec651ad4f2.png"
 
     os.system(f"wget {url}")
-    url = url[url.rfind('/') + 1:]
+    url = url[url.rfind("/") + 1 :]
     os.system(f"convert {url} -resize 200x200 {url}")
     # https: // psnobj.prod.dl.playstation.net / psnobj / NPWR22008_00 / 6c1d6ee2 - 469a - 4b97 - ad63 - 98ec651ad4f2.png
 
     chatid = -749962132
     telebot.sendMessage(chat_id=chatid, text="platinum sticker")
     # bot.send_message(chatid, f"platinum sticker")
-    telebot.send_sticker(chatid,
-                         sticker='CAACAgIAAxkBAAEV9xliz9cW_7inof3UGYHVLF3AbJuy_QACTwsAAkKvaQABE3jwX_D6RZYpBA')
+    telebot.send_sticker(
+        chatid,
+        sticker="CAACAgIAAxkBAAEV9xliz9cW_7inof3UGYHVLF3AbJuy_QACTwsAAkKvaQABE3jwX_D6RZYpBA",
+    )
 
-    text = "Gran Turismo 7\nschnappi_omsk just got a trophy:\nToughening Up\nIncreased a car's body rigidity 10 times.\nbronze - 5.1"
+    # text = "Gran Turismo 7\nschnappi_omsk just got a trophy:\nToughening Up\nIncreased a car's body rigidity 10 times.\nbronze - 5.1"
 
     telebot.send_photo(
-        chatid, photo=open(f'/home/ubuntu/Projects/Python/PSNBot/psnapi/{url}', 'rb'))
+        chatid, photo=open(f"/home/ubuntu/Projects/Python/PSNBot/psnapi/{url}", "rb")
+    )
 
     os.system(f"rm {url}")
 
@@ -710,13 +749,13 @@ async def on_bot_start_up(dispatcher: Dispatcher) -> None:
     asyncio.create_task(background_on_start())  # creates background task
 
 
-'''    
+"""    
 @dp.message_handler()
 async def echo(message: types.Message):
     # old style:
     # await bot.send_message(message.chat.id, message.text)
     print(message.text)
     # await message.answer(message.text)
-'''
+"""
 
 executor.start_polling(dp, on_startup=on_bot_start_up)
